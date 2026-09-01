@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1D Kinematics: Rocket Integration</title>
+    <!-- Chart.js for plotting -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- KaTeX for math rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #f4f4f9;
+            --panel-bg: #ffffff;
+            --text-main: #333333;
+            --accent: #3498db;
+            --accent-hover: #2980b9;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            height: 100vh;
+            box-sizing: border-box;
+            gap: 20px;
+        }
+        h1, h2, h3 { margin-top: 0; }
+        .left-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 50%;
+        }
+        .right-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            max-width: 50%;
+        }
+        .panel {
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+        }
+        canvas#simCanvas {
+            width: 100%;
+            height: 250px;
+            background: #eef2f5;
+            border-radius: 8px;
+            border: 1px solid #dcdde1;
+        }
+        .controls-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            flex: 1;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .control-group label {
+            font-weight: 600;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+        .control-group input[type="range"] {
+            width: 100%;
+        }
+        .value-display {
+            font-size: 0.9em;
+            color: var(--accent);
+            font-weight: bold;
+        }
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        button {
+            flex: 1;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            background-color: var(--accent);
+            color: white;
+            transition: background 0.2s;
+        }
+        button:hover { background-color: var(--accent-hover); }
+        button.btn-stop { background-color: #e74c3c; }
+        button.btn-stop:hover { background-color: #c0392b; }
+        button.btn-reset { background-color: #95a5a6; }
+        button.btn-reset:hover { background-color: #7f8c8d; }
+        .chart-container {
+            position: relative;
+            flex: 1;
+            min-height: 0;
+        }
+        .math-header {
+            font-size: 1.1em;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="left-column">
+        <!-- Simulation Canvas -->
+        <div class="panel">
+            <h2 style="font-size: 1.2em;">Rocket Kinematics Simulation</h2>
+            <canvas id="simCanvas" width="800" height="250"></canvas>
+            <div id="liveStats" style="margin-top: 10px; font-family: monospace; font-size: 1.1em; display: flex; justify-content: space-between;">
+                <span>Time: 0.00 s</span>
+                <span>Mass: 0.0 kg</span>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="panel" style="flex: 1;">
+            <div class="math-header">
+                Tsiolkovsky Equation: $$a(t) = \frac{v_{ex} m'}{m_0 - m' t}$$
+            </div>
+            
+            <div class="controls-grid">
+                <div class="control-group">
+                    <div style="display: flex; justify-content: space-between;">
+                        <label>Initial Mass $m_0$ (kg)</label>
+                        <div class="value-display" id="m0-val">1000</div>
+                    </div>
+                    <input type="range" id="m0" min="100" max="2000" step="10" value="1000">
+                </div>
+                <div class="control-group">
+                    <div style="display: flex; justify-content: space-between;">
+                        <label>Burn Rate $m'$ (kg/s)</label>
+                        <div class="value-display" id="mPrime-val">20</div>
+                    </div>
+                    <input type="range" id="mPrime" min="1" max="100" step="1" value="20">
+                </div>
+                <div class="control-group">
+                    <div style="display: flex; justify-content: space-between;">
+                        <label>Exhaust Vel. $v_{ex}$ (m/s)</label>
+                        <div class="value-display" id="vex-val">100</div>
+                    </div>
+                    <input type="range" id="vex" min="10" max="500" step="10" value="100">
+                </div>
+                <div class="control-group">
+                    <div style="display: flex; justify-content: space-between;">
+                        <label>Init. Position $x_0$ (m)</label>
+                        <div class="value-display" id="x0-val">0</div>
+                    </div>
+                    <input type="range" id="x0" min="0" max="1000" step="10" value="0">
+                </div>
+                <div class="control-group">
+                    <div style="display: flex; justify-content: space-between;">
+                        <label>Init. Velocity $v_0$ (m/s)</label>
+                        <div class="value-display" id="v0-val">0</div>
+                    </div>
+                    <input type="range" id="v0" min="0" max="200" step="5" value="0">
+                </div>
+                <div class="control-group">
+                    <div style="display: flex; justify-content: space-between;">
+                        <label>Fuel Mass Fraction (%)</label>
+                        <div class="value-display" id="fuelFrac-val">80</div>
+                    </div>
+                    <input type="range" id="fuelFrac" min="10" max="95" step="5" value="80">
+                </div>
+            </div>
+
+            <div class="btn-row">
+                <button id="btnStart">Start / Resume</button>
+                <button id="btnPause" class="btn-stop">Pause</button>
+                <button id="btnReset" class="btn-reset">Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="right-column">
+        <h3 style="margin: 0;">Kinematic Plots (Integration over Time)</h3>
+        
+        <div class="chart-container">
+            <canvas id="aChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <canvas id="vChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <canvas id="xChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // Render KaTeX for UI math
+        renderMathInElement(document.body, {
+            delimiters: [
+                {left: "$$", right: "$$", display: true},
+                {left: "$", right: "$", display: false}
+            ]
+        });
+
+        // UI Elements
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const liveStats = document.getElementById('liveStats');
+
+        const inputs = {
+            m0: document.getElementById('m0'),
+            mPrime: document.getElementById('mPrime'),
+            vex: document.getElementById('vex'),
+            x0: document.getElementById('x0'),
+            v0: document.getElementById('v0'),
+            fuelFrac: document.getElementById('fuelFrac')
+        };
+        const displays = {
+            m0: document.getElementById('m0-val'),
+            mPrime: document.getElementById('mPrime-val'),
+            vex: document.getElementById('vex-val'),
+            x0: document.getElementById('x0-val'),
+            v0: document.getElementById('v0-val'),
+            fuelFrac: document.getElementById('fuelFrac-val')
+        };
+
+        // Sync inputs with displays
+        for (let key in inputs) {
+            inputs[key].addEventListener('input', () => {
+                displays[key].innerText = inputs[key].value;
+                if (!isRunning && t === 0) resetSim();
+            });
+        }
+
+        // Physics State
+        let isRunning = false;
+        let lastTime = 0;
+        
+        let t = 0;
+        let m = 0;
+        let x = 0;
+        let v = 0;
+        let a = 0;
+        let emptyMass = 0;
+
+        // Chart Data Arrays
+        let chartTime = [];
+        let chartA = [];
+        let chartV = [];
+        let chartX = [];
+
+        // Chart Configuration
+        const chartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            elements: { point: { radius: 0 }, line: { borderWidth: 2, tension: 0.1 } },
+            scales: { 
+                x: { type: 'linear', title: { display: true, text: 'Time (s)' } },
+                y: { min: 0 }
+            },
+            plugins: { legend: { display: true, position: 'top' } }
+        };
+
+        const aChart = new Chart(document.getElementById('aChart'), {
+            type: 'line',
+            data: { labels: chartTime, datasets: [{ label: 'Acceleration (m/s²)', data: chartA, borderColor: '#e74c3c' }] },
+            options: chartOptions
+        });
+        const vChart = new Chart(document.getElementById('vChart'), {
+            type: 'line',
+            data: { labels: chartTime, datasets: [{ label: 'Velocity (m/s)  [∫ a dt]', data: chartV, borderColor: '#f39c12' }] },
+            options: chartOptions
+        });
+        const xChart = new Chart(document.getElementById('xChart'), {
+            type: 'line',
+            data: { labels: chartTime, datasets: [{ label: 'Position (m)  [∫ v dt]', data: chartX, borderColor: '#2980b9' }] },
+            options: chartOptions
+        });
+
+        function updateCharts() {
+            aChart.update();
+            vChart.update();
+            xChart.update();
+        }
+
+        function resetSim() {
+            isRunning = false;
+            
+            // Read initial parameters
+            const m0 = parseFloat(inputs.m0.value);
+            const fuelFrac = parseFloat(inputs.fuelFrac.value) / 100.0;
+            t = 0;
+            m = m0;
+            emptyMass = m0 * (1.0 - fuelFrac); // burnout occurs when fuel is depleted
+            x = parseFloat(inputs.x0.value);
+            v = parseFloat(inputs.v0.value);
+            
+            const mPrime = parseFloat(inputs.mPrime.value);
+            const vex = parseFloat(inputs.vex.value);
+            a = (vex * mPrime) / m;
+
+            // Clear Chart Data
+            chartTime.length = 0;
+            chartA.length = 0;
+            chartV.length = 0;
+            chartX.length = 0;
+            
+            recordData();
+            updateCharts();
+            drawCanvas();
+            updateStats();
+        }
+
+        function recordData() {
+            chartTime.push(t);
+            chartA.push(a);
+            chartV.push(v);
+            chartX.push(x);
+        }
+
+        function updateStats() {
+            liveStats.innerHTML = `<span>Time: ${t.toFixed(2)} s</span><span>Mass: ${m.toFixed(1)} kg</span>`;
+        }
+
+        function drawCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Camera tracks the rocket smoothly, keeping it on screen
+            const cameraX = Math.max(0, x - canvas.width * 0.2);
+            
+            // Draw Ground
+            ctx.strokeStyle = '#bdc3c7';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height - 30);
+            ctx.lineTo(canvas.width, canvas.height - 30);
+            ctx.stroke();
+
+            // Draw Grid 
+            const startGrid = Math.floor(cameraX / 100) * 100;
+            ctx.fillStyle = '#7f8c8d';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            for (let gx = startGrid; gx < startGrid + canvas.width + 100; gx += 100) {
+                const screenX = gx - cameraX;
+                ctx.beginPath();
+                ctx.moveTo(screenX, canvas.height - 30);
+                ctx.lineTo(screenX, canvas.height - 20);
+                ctx.stroke();
+                ctx.fillText(gx + 'm', screenX, canvas.height - 5);
+            }
+
+            // Draw Rocket
+            const screenX = x - cameraX;
+            const rocketY = canvas.height - 45;
+
+            ctx.save();
+            ctx.translate(screenX, rocketY);
+
+            // Thrust Flame
+            if (m > emptyMass && isRunning) {
+                ctx.fillStyle = '#f39c12';
+                ctx.beginPath();
+                ctx.moveTo(-20, -5);
+                ctx.lineTo(-20 - Math.random() * 30 - 15, 0); // Flickering
+                ctx.lineTo(-20, 5);
+                ctx.fill();
+            }
+
+            // Main Body
+            ctx.fillStyle = '#95a5a6';
+            ctx.fillRect(-20, -10, 40, 20);
+            
+            // Nose Cone
+            ctx.fillStyle = '#e74c3c';
+            ctx.beginPath();
+            ctx.moveTo(20, -10);
+            ctx.lineTo(35, 0);
+            ctx.lineTo(20, 10);
+            ctx.fill();
+            
+            // Fins
+            ctx.fillStyle = '#c0392b';
+            ctx.beginPath(); ctx.moveTo(-20, -10); ctx.lineTo(-10, -10); ctx.lineTo(-20, -20); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(-20, 10); ctx.lineTo(-10, 10); ctx.lineTo(-20, 20); ctx.fill();
+
+            ctx.restore();
+        }
+
+        function physicsStep(dt) {
+            const mPrime = parseFloat(inputs.mPrime.value);
+            const vex = parseFloat(inputs.vex.value);
+
+            // Sub-stepping Euler Integration
+            const steps = 10; 
+            const sub_dt = dt / steps;
+
+            for (let i = 0; i < steps; i++) {
+                // Determine acceleration
+                if (m > emptyMass) {
+                    m -= mPrime * sub_dt;
+                    a = (vex * mPrime) / m;
+                } else {
+                    a = 0; // Burnout
+                }
+                
+                // Integrate: a -> v -> x
+                v += a * sub_dt;
+                x += v * sub_dt;
+                t += sub_dt;
+            }
+        }
+
+        let frameCounter = 0;
+        function loop(timestamp) {
+            if (!isRunning) {
+                lastTime = timestamp;
+                requestAnimationFrame(loop);
+                return;
+            }
+
+            let dt = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+            
+            // Prevent huge jumps if tab was unfocused
+            if (dt > 0.1) dt = 0.1;
+            
+            // Advance simulation
+            physicsStep(dt);
+
+            // Record and plot every few frames to keep charts performant
+            frameCounter++;
+            if (frameCounter % 4 === 0) {
+                recordData();
+                updateCharts();
+                updateStats();
+            }
+            
+            drawCanvas();
+            requestAnimationFrame(loop);
+        }
+
+        // Buttons
+        document.getElementById('btnStart').addEventListener('click', () => {
+            if (!isRunning) {
+                isRunning = true;
+                lastTime = performance.now();
+            }
+        });
+        document.getElementById('btnPause').addEventListener('click', () => { isRunning = false; });
+        document.getElementById('btnReset').addEventListener('click', resetSim);
+
+        resetSim();
+        requestAnimationFrame(loop);
+    </script>
+</body>
+</html>
