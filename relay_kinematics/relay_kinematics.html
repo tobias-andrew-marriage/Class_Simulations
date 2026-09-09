@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relay Baton Hand-off Simulation</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: #1e293b;
+            --text-color: #f8fafc;
+            --accent-1: #38bdf8;
+            --accent-2: #f472b6;
+            --border-radius: 12px;
+            --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .header {
+            margin-top: 2rem;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin: 0;
+            background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header p {
+            color: #94a3b8;
+            margin-top: 0.5rem;
+            font-size: 1.1rem;
+        }
+
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            width: 100%;
+            max-width: 1000px;
+            padding: 2rem;
+            box-sizing: border-box;
+        }
+
+        .controls {
+            background-color: var(--panel-bg);
+            padding: 2rem;
+            border-radius: var(--border-radius);
+            display: flex;
+            gap: 2rem;
+            justify-content: space-between;
+            align-items: flex-start;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            flex: 1;
+        }
+
+        .input-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .input-item label {
+            font-weight: 500;
+            color: #cbd5e1;
+        }
+
+        .input-item input {
+            background-color: #0f172a;
+            border: 1px solid #334155;
+            color: var(--text-color);
+            padding: 0.5rem;
+            border-radius: 6px;
+            width: 80px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .input-item input:focus {
+            border-color: var(--accent-1);
+        }
+
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            justify-content: center;
+        }
+
+        button {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+            background: linear-gradient(135deg, var(--accent-1), #0ea5e9);
+            color: white;
+            box-shadow: 0 4px 6px -1px rgba(56, 189, 248, 0.3);
+        }
+
+        button:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        button.reset {
+            background: #334155;
+            box-shadow: none;
+        }
+
+        button.reset:hover {
+            background: #475569;
+        }
+
+        .simulation-area {
+            background-color: var(--panel-bg);
+            border-radius: var(--border-radius);
+            padding: 2rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            position: relative;
+        }
+
+        canvas {
+            width: 100%;
+            height: 300px;
+            background-color: #0f172a;
+            border-radius: 8px;
+            border: 1px solid #334155;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 2rem;
+            background-color: #0f172a;
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 1px solid #334155;
+        }
+
+        .stat-box {
+            text-align: center;
+        }
+
+        .stat-label {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--accent-1);
+        }
+
+        .stat-value.handoff {
+            color: var(--accent-2);
+        }
+
+        .message {
+            position: absolute;
+            top: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(15, 23, 42, 0.9);
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--accent-2);
+            border: 2px solid var(--accent-2);
+            display: none;
+            z-index: 10;
+            backdrop-filter: blur(4px);
+            text-align: center;
+        }
+        
+        .message span {
+            display: block;
+            font-size: 1rem;
+            color: #cbd5e1;
+            margin-top: 0.5rem;
+            font-weight: normal;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+            }
+            .input-group, .button-group {
+                width: 100%;
+            }
+            .stats {
+                flex-direction: column;
+                gap: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Relay Baton Hand-off</h1>
+        <p>Kinematics Simulation</p>
+    </div>
+
+    <div class="main-container">
+        <div class="controls">
+            <div class="input-group">
+                <div class="input-item">
+                    <label for="v1">Runner 1 Speed (v₁)</label>
+                    <div><input type="number" id="v1" value="10" step="0.1" min="0"> m/s</div>
+                </div>
+                <div class="input-item">
+                    <label for="v2">Runner 2 Speed (v₂)</label>
+                    <div><input type="number" id="v2" value="8" step="0.1" min="0"> m/s</div>
+                </div>
+                <div class="input-item">
+                    <label for="dist">Initial Distance (d)</label>
+                    <div><input type="number" id="dist" value="10" step="1" min="0"> m</div>
+                </div>
+                <div class="input-item">
+                    <label for="refFrame">Runner 2 Frame</label>
+                    <div><input type="checkbox" id="refFrame" style="width: 20px; height: 20px; cursor: pointer;"></div>
+                </div>
+            </div>
+            <div class="button-group">
+                <button id="startBtn" onclick="toggleSimulation()">Start Simulation</button>
+                <button class="reset" onclick="resetSimulation()">Reset</button>
+            </div>
+        </div>
+
+        <div class="simulation-area">
+            <canvas id="simCanvas" width="900" height="300"></canvas>
+            <div id="handoffMsg" class="message">
+                Hand-off Complete!
+                <span id="handoffDetails"></span>
+            </div>
+            
+            <div class="stats">
+                <div class="stat-box">
+                    <div class="stat-label">Time Elapsed</div>
+                    <div class="stat-value" id="timeDisplay">0.00 s</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Runner 2 Distance</div>
+                    <div class="stat-value handoff" id="distDisplay">0.00 m</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Simulation state
+        let isRunning = false;
+        let isFinished = false;
+        let t = 0; // time in seconds
+        let lastTimestamp = 0;
+        let animationId = null;
+
+        // Physical parameters
+        let v1 = 0;
+        let v2 = 0;
+        let d = 0;
+        
+        let pixelsPerMeter = 10;
+        const groundY = 250;
+        
+        // Setup initial values
+        function initParams() {
+            v1 = parseFloat(document.getElementById('v1').value);
+            v2 = parseFloat(document.getElementById('v2').value);
+            d = parseFloat(document.getElementById('dist').value);
+            
+            // Adjust to show ~50m visible on the 900px canvas instead of 70m-90m
+            const defaultPpm = 900 / 50; // 18 pixels per meter
+            
+            // Dynamically scale down pixels per meter so both runners start in view if d is large
+            if (d * defaultPpm > canvas.width - 150) {
+                pixelsPerMeter = (canvas.width - 150) / d;
+            } else {
+                pixelsPerMeter = defaultPpm;
+            }
+        }
+
+        function drawRunner(x, y, color, label, isBaton, velocity) {
+            ctx.save();
+            ctx.translate(x, y);
+            
+            // Draw head
+            ctx.beginPath();
+            ctx.arc(0, -30, 8, 0, Math.PI * 2);
+            ctx.fillStyle = color;
+            ctx.fill();
+            
+            // Draw body
+            ctx.beginPath();
+            ctx.moveTo(0, -22);
+            ctx.lineTo(0, -5);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            // Legs (simple animation based on x position)
+            const stride = Math.sin(x * 0.2) * 10;
+            
+            ctx.beginPath();
+            ctx.moveTo(0, -5);
+            ctx.lineTo(stride, 15);
+            ctx.moveTo(0, -5);
+            ctx.lineTo(-stride, 15);
+            ctx.stroke();
+
+            // Arms
+            ctx.beginPath();
+            ctx.moveTo(0, -18);
+            ctx.lineTo(-stride, -10);
+            ctx.moveTo(0, -18);
+            ctx.lineTo(stride, -10);
+            ctx.stroke();
+
+            // Baton
+            if (isBaton) {
+                ctx.beginPath();
+                ctx.moveTo(stride, -15);
+                ctx.lineTo(stride + 10, -15);
+                ctx.strokeStyle = '#facc15';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            }
+
+            // Label
+            ctx.fillStyle = color;
+            ctx.font = '12px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(label, 0, -45);
+
+            // Velocity Vector
+            if (velocity > 0) {
+                const vectorLen = velocity * 6; // Scale arrow length for visibility
+                const arrowY = -80; // Place above the label
+                
+                // Draw line
+                ctx.beginPath();
+                ctx.moveTo(0, arrowY);
+                ctx.lineTo(vectorLen, arrowY);
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                // Draw arrowhead
+                ctx.beginPath();
+                ctx.moveTo(vectorLen, arrowY);
+                ctx.lineTo(vectorLen - 8, arrowY - 6);
+                ctx.lineTo(vectorLen - 8, arrowY + 6);
+                ctx.fillStyle = color;
+                ctx.fill();
+                
+                // Draw velocity label
+                ctx.font = 'bold 14px Inter, sans-serif';
+                ctx.fillText(velocity.toFixed(1) + ' m/s', vectorLen / 2, arrowY - 10);
+            }
+
+            ctx.restore();
+        }
+
+        function drawBackground(parallaxOffset) {
+            // Bleachers parameters
+            const bleacherY = 20;
+            const bleacherHeight = 80;
+            const stepHeight = 20;
+            
+            const tileWidth = 100;
+            const startX = -(parallaxOffset % tileWidth);
+            
+            ctx.save();
+            
+            // Draw a background rectangle for the stands
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(0, bleacherY, canvas.width, bleacherHeight);
+            
+            // Draw horizontal bleacher steps
+            for (let i = 0; i <= bleacherHeight; i += stepHeight) {
+                ctx.beginPath();
+                ctx.moveTo(0, bleacherY + i);
+                ctx.lineTo(canvas.width, bleacherY + i);
+                ctx.strokeStyle = '#334155';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
+            // Draw angled supports and fans
+            const fanColors = ['#f87171', '#60a5fa', '#34d399', '#fbbf24', '#a78bfa', '#f472b6'];
+            
+            for (let x = startX - tileWidth; x < canvas.width + tileWidth; x += tileWidth) {
+                // Vertical/angled support
+                ctx.beginPath();
+                ctx.moveTo(x, bleacherY);
+                ctx.lineTo(x - 20, bleacherY + bleacherHeight);
+                ctx.strokeStyle = '#0f172a';
+                ctx.lineWidth = 4;
+                ctx.stroke();
+
+                // Draw some fans randomly seated on this tile
+                let absX = x + parallaxOffset;
+                let seed = Math.floor(absX / tileWidth);
+                
+                for (let j = 0; j < 8; j++) {
+                    // Simple pseudo-random using seed
+                    let r1 = ((Math.abs(seed) * 13 + j * 7) % 11) / 11;
+                    let r2 = ((Math.abs(seed) * 17 + j * 3) % 13) / 13;
+                    let r3 = ((Math.abs(seed) * 19 + j * 5) % 7) / 7;
+
+                    let fanX = x + r1 * tileWidth;
+                    // Limit rows to avoid placing fans below the bleachers
+                    let numRows = Math.floor(bleacherHeight / stepHeight); 
+                    let row = Math.floor(r2 * numRows);
+                    let fanY = bleacherY + row * stepHeight + stepHeight - 2;
+                    let color = fanColors[Math.floor(r3 * fanColors.length)];
+
+                    // Draw Fan
+                    ctx.beginPath();
+                    ctx.arc(fanX, fanY - 6, 4, 0, Math.PI * 2); // head
+                    ctx.fillStyle = color;
+                    ctx.fill();
+                    
+                    ctx.beginPath();
+                    ctx.arc(fanX, fanY, 6, Math.PI, 0); // shoulders
+                    ctx.fill();
+                }
+            }
+            
+            ctx.restore();
+        }
+
+        function drawScene() {
+            // Calculate positions (in meters)
+            let x1_m = -d + v1 * t;
+            let x2_m = v2 * t;
+
+            // Check for handoff
+            if (x1_m >= x2_m && v1 > v2 && t > 0) {
+                isFinished = true;
+                x1_m = x2_m; // clamp
+                
+                // Show message
+                const msg = document.getElementById('handoffMsg');
+                const details = document.getElementById('handoffDetails');
+                details.innerHTML = `Time: ${t.toFixed(2)} s<br>Runner 2 Distance: ${x2_m.toFixed(2)} m`;
+                msg.style.display = 'block';
+                document.getElementById('startBtn').innerText = 'Start Simulation';
+            }
+
+            // Convert to pixels
+            const originX = 50 + d * pixelsPerMeter;
+            
+            // Adjust camera
+            let cameraOffset = 0;
+            const useR2Frame = document.getElementById('refFrame').checked;
+            
+            if (useR2Frame) {
+                // In Runner 2's frame, fix Runner 2 exactly at originX. 
+                cameraOffset = x2_m * pixelsPerMeter;
+            } else {
+                // Normal frame: pan camera if Runner 1 gets close to the right edge
+                if (originX + x1_m * pixelsPerMeter > canvas.width - 200) {
+                    cameraOffset = (originX + x1_m * pixelsPerMeter) - (canvas.width - 200);
+                }
+            }
+
+            // Clear
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw background with parallax (slower scrolling)
+            drawBackground(cameraOffset * 0.4);
+
+            // Draw track (extends infinitely relative to camera)
+            ctx.beginPath();
+            ctx.moveTo(0, groundY + 15);
+            ctx.lineTo(canvas.width, groundY + 15);
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            // Draw track lines (they move relative to the camera)
+            const trackOffset = cameraOffset % 20;
+            ctx.beginPath();
+            ctx.moveTo(-trackOffset, groundY + 25);
+            ctx.lineTo(canvas.width + 20, groundY + 25);
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([10, 10]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            const px1 = originX + x1_m * pixelsPerMeter - cameraOffset;
+            const px2 = originX + x2_m * pixelsPerMeter - cameraOffset;
+
+            // Draw distance markers (every 10m)
+            ctx.fillStyle = '#64748b';
+            ctx.font = '10px Inter';
+            ctx.textAlign = 'center';
+            
+            if (useR2Frame) {
+                // Coordinate system attached to Runner 2 (0 is always under Runner 2)
+                const startM = Math.floor(-originX / pixelsPerMeter / 10) * 10 - 10;
+                const endM = Math.ceil((canvas.width - originX) / pixelsPerMeter / 10) * 10 + 10;
+                
+                for (let m = startM; m <= endM; m += 10) {
+                    const px = originX + m * pixelsPerMeter;
+                    if (px > 0 && px < canvas.width) {
+                        ctx.beginPath();
+                        ctx.moveTo(px, groundY + 15);
+                        ctx.lineTo(px, groundY + 25);
+                        ctx.strokeStyle = '#64748b';
+                        ctx.stroke();
+                        ctx.fillText(m + 'm', px, groundY + 38);
+                    }
+                }
+            } else {
+                // Coordinate system attached to the ground
+                const startM = Math.floor((cameraOffset - originX) / pixelsPerMeter / 10) * 10 - 10;
+                const endM = Math.ceil((canvas.width + cameraOffset - originX) / pixelsPerMeter / 10) * 10 + 10;
+                
+                for (let m = startM; m <= endM; m += 10) {
+                    const px = originX + m * pixelsPerMeter - cameraOffset;
+                    if (px > 0 && px < canvas.width) {
+                        ctx.beginPath();
+                        ctx.moveTo(px, groundY + 15);
+                        ctx.lineTo(px, groundY + 25);
+                        ctx.strokeStyle = '#64748b';
+                        ctx.stroke();
+                        ctx.fillText(m + 'm', px, groundY + 38);
+                    }
+                }
+            }
+            
+            // Determine velocities to display
+            const v1_disp = useR2Frame ? (v1 - v2) : v1;
+            const v2_disp = useR2Frame ? 0 : v2;
+
+            // Draw runners
+            // Runner 2 (pink)
+            drawRunner(px2, groundY, '#f472b6', 'Runner 2', isFinished, v2_disp);
+            // Runner 1 (blue)
+            drawRunner(px1, groundY, '#38bdf8', 'Runner 1', !isFinished, v1_disp);
+
+            // Update stats
+            document.getElementById('timeDisplay').innerText = t.toFixed(2) + ' s';
+            document.getElementById('distDisplay').innerText = x2_m.toFixed(2) + ' m';
+        }
+
+        function update(timestamp) {
+            if (!lastTimestamp) lastTimestamp = timestamp;
+            const dt = (timestamp - lastTimestamp) / 1000; // seconds
+            lastTimestamp = timestamp;
+
+            if (isRunning && !isFinished) {
+                // Time scale (1x real time)
+                t += dt;
+            }
+
+            drawScene();
+
+            if (isRunning && !isFinished) {
+                animationId = requestAnimationFrame(update);
+            }
+        }
+
+        function toggleSimulation() {
+            const btn = document.getElementById('startBtn');
+            
+            // Validation
+            initParams();
+            if (v1 <= v2) {
+                alert("Runner 1 must be faster than Runner 2 for a hand-off to occur!");
+                return;
+            }
+
+            if (isFinished) {
+                resetSimulation();
+                isRunning = true;
+                btn.innerText = 'Pause';
+                lastTimestamp = 0;
+                animationId = requestAnimationFrame(update);
+                return;
+            }
+
+            isRunning = !isRunning;
+            
+            if (isRunning) {
+                btn.innerText = 'Pause';
+                lastTimestamp = 0;
+                animationId = requestAnimationFrame(update);
+            } else {
+                btn.innerText = 'Resume';
+                cancelAnimationFrame(animationId);
+            }
+        }
+
+        function resetSimulation() {
+            isRunning = false;
+            isFinished = false;
+            t = 0;
+            lastTimestamp = 0;
+            
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+            
+            document.getElementById('startBtn').innerText = 'Start Simulation';
+            document.getElementById('handoffMsg').style.display = 'none';
+            
+            initParams();
+            drawScene();
+        }
+
+        // Initial draw
+        initParams();
+        drawScene();
+
+        // Listen for input changes to redraw initial state if not running
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('input', () => {
+                if (!isRunning && t === 0) {
+                    initParams();
+                    drawScene();
+                }
+            });
+        });
+
+    </script>
+</body>
+</html>

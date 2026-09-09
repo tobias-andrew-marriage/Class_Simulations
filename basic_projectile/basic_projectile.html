@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Basic Projectile Motion Simulation</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+        h1 {
+            margin-bottom: 10px;
+        }
+        .controls {
+            margin-bottom: 20px;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            background-color: #fff;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            min-width: 150px;
+        }
+        .control-group label {
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .theta-display {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #0056b3;
+            background: #eef;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        canvas {
+            border: 2px solid #555;
+            background-color: #eef;
+            border-radius: 4px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .info {
+            margin-top: 15px;
+            font-size: 1.2em;
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 30px;
+        }
+        .info-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .info-value {
+            font-weight: bold;
+            font-size: 1.2em;
+            color: #d9534f;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 1.1em;
+            cursor: pointer;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        button#reset-btn {
+            background-color: #dc3545;
+        }
+        button#reset-btn:hover {
+            background-color: #c82333;
+        }
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Basic Projectile Motion</h1>
+
+    <div class="controls">
+        <div class="control-group">
+            <label for="vx">v<sub>x</sub> (m/s): <span id="vx-val">20</span></label>
+            <input type="range" id="vx" min="0" max="40" value="20" step="1">
+        </div>
+        <div class="control-group">
+            <label for="vy">v<sub>y</sub> (m/s): <span id="vy-val">20</span></label>
+            <input type="range" id="vy" min="0" max="55" value="20" step="1">
+        </div>
+        <div class="control-group">
+            <div class="theta-display">Angle &theta;: <span id="theta-val">53.1</span>&deg;</div>
+        </div>
+        <button id="launch-btn">Launch</button>
+        <button id="reset-btn">Reset</button>
+    </div>
+
+    <canvas id="sim-canvas" width="800" height="400"></canvas>
+
+    <div class="info">
+        <div class="info-item">
+            <span>Time</span>
+            <span class="info-value"><span id="time-val">0.00</span> s</span>
+        </div>
+        <div class="info-item">
+            <span>Distance (X)</span>
+            <span class="info-value"><span id="dist-x-val">0.00</span> m</span>
+        </div>
+        <div class="info-item">
+            <span>Max Height</span>
+            <span class="info-value"><span id="max-h-val">0.00</span> m</span>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('sim-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        const vxInput = document.getElementById('vx');
+        const vyInput = document.getElementById('vy');
+        const vxVal = document.getElementById('vx-val');
+        const vyVal = document.getElementById('vy-val');
+        const thetaVal = document.getElementById('theta-val');
+        const timeVal = document.getElementById('time-val');
+        const distXVal = document.getElementById('dist-x-val');
+        const maxHVal = document.getElementById('max-h-val');
+        const launchBtn = document.getElementById('launch-btn');
+        const resetBtn = document.getElementById('reset-btn');
+
+        let vx = parseFloat(vxInput.value);
+        let vy = parseFloat(vyInput.value);
+        const g = 9.81; 
+        const scale = 2.5; // pixels per meter
+        const groundY = canvas.height - 30;
+
+        let isAnimating = false;
+        let startTime = 0;
+        let animationId;
+        
+        let path = [];
+        let maxReached = false;
+        let maxHeight = 0;
+        let maxTime = 0;
+        let maxX = 0;
+
+        function updateTheta() {
+            vx = parseFloat(vxInput.value);
+            vy = parseFloat(vyInput.value);
+            vxVal.textContent = vx;
+            vyVal.textContent = vy;
+            
+            let theta = Math.atan2(vy, vx) * (180 / Math.PI);
+            if (vx === 0 && vy === 0) theta = 0;
+            thetaVal.textContent = theta.toFixed(1);
+            
+            if (!isAnimating && typeof reset === 'function') {
+                reset();
+            }
+        }
+
+        vxInput.addEventListener('input', updateTheta);
+        vyInput.addEventListener('input', updateTheta);
+
+        function drawGround() {
+            ctx.beginPath();
+            ctx.moveTo(0, groundY);
+            ctx.lineTo(canvas.width, groundY);
+            ctx.strokeStyle = '#2d5a27';
+            ctx.lineWidth = 6;
+            ctx.stroke();
+            
+            // Draw origin marker
+            ctx.beginPath();
+            ctx.arc(30, groundY, 4, 0, 2*Math.PI);
+            ctx.fillStyle = '#000';
+            ctx.fill();
+        }
+
+        function drawGrid() {
+            ctx.strokeStyle = '#ddd';
+            ctx.lineWidth = 1;
+            // Draw vertical lines every 10 meters
+            for (let x = 0; x < canvas.width; x += 10 * scale) {
+                ctx.beginPath();
+                ctx.moveTo(30 + x, 0);
+                ctx.lineTo(30 + x, groundY);
+                ctx.stroke();
+            }
+            // Draw horizontal lines every 10 meters
+            for (let y = 0; y < groundY; y += 10 * scale) {
+                ctx.beginPath();
+                ctx.moveTo(0, groundY - y);
+                ctx.lineTo(canvas.width, groundY - y);
+                ctx.stroke();
+            }
+        }
+
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawGrid();
+            drawGround();
+        }
+
+        function drawVelocityArrow() {
+            if (vx === 0 && vy === 0) return;
+            const startX = 30;
+            const startY = groundY;
+            const arrowScale = 2.0; 
+            const endX = startX + vx * arrowScale;
+            const endY = startY - vy * arrowScale;
+            const headlen = 12; 
+            const angle = Math.atan2(-vy, vx);
+
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
+            ctx.lineTo(endX - headlen * Math.cos(angle - Math.PI / 7), endY - headlen * Math.sin(angle - Math.PI / 7));
+            ctx.moveTo(endX, endY);
+            ctx.lineTo(endX - headlen * Math.cos(angle + Math.PI / 7), endY - headlen * Math.sin(angle + Math.PI / 7));
+            ctx.strokeStyle = '#0056b3';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+        }
+
+        function reset() {
+            cancelAnimationFrame(animationId);
+            isAnimating = false;
+            path = [];
+            maxReached = false;
+            maxHeight = 0;
+            maxTime = 0;
+            maxX = 0;
+            timeVal.textContent = "0.00";
+            distXVal.textContent = "0.00";
+            maxHVal.textContent = "0.00";
+            clearCanvas();
+            launchBtn.disabled = false;
+            vxInput.disabled = false;
+            vyInput.disabled = false;
+            
+            drawVelocityArrow();
+            
+            // Draw initial ball position
+            ctx.beginPath();
+            ctx.arc(30, groundY, 8, 0, 2 * Math.PI);
+            ctx.fillStyle = '#333';
+            ctx.fill();
+        }
+
+        resetBtn.addEventListener('click', reset);
+
+        function animate(timestamp) {
+            if (!startTime) startTime = timestamp;
+            const elapsedSimTime = (timestamp - startTime) / 1000 * 1.5; // Speed multiplier
+
+            const x = vx * elapsedSimTime;
+            const y = vy * elapsedSimTime - 0.5 * g * elapsedSimTime * elapsedSimTime;
+            
+            const currentMaxH = (vy * vy) / (2 * g);
+            const currentMaxTime = vy / g;
+            
+            if (elapsedSimTime >= currentMaxTime && !maxReached && vy > 0) {
+                maxReached = true;
+                maxHeight = currentMaxH;
+                maxTime = currentMaxTime;
+                maxX = vx * maxTime;
+                maxHVal.textContent = maxHeight.toFixed(2);
+            }
+
+            const canvasX = 30 + x * scale;
+            const canvasY = groundY - (y * scale);
+
+            path.push({x: canvasX, y: canvasY});
+            clearCanvas();
+
+            // Draw trajectory path
+            if (path.length > 0) {
+                ctx.beginPath();
+                ctx.moveTo(path[0].x, path[0].y);
+                for (let i = 1; i < path.length; i++) {
+                    ctx.lineTo(path[i].x, path[i].y);
+                }
+                ctx.strokeStyle = 'rgba(0, 86, 179, 0.5)';
+                ctx.lineWidth = 3;
+                ctx.setLineDash([5, 5]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+            // Draw max height marker
+            if (maxReached) {
+                const markerX = 30 + maxX * scale;
+                const markerY = groundY - (maxHeight * scale);
+                
+                // Draw crosshair
+                ctx.beginPath();
+                ctx.moveTo(markerX - 10, markerY);
+                ctx.lineTo(markerX + 10, markerY);
+                ctx.moveTo(markerX, markerY - 10);
+                ctx.lineTo(markerX, markerY + 10);
+                ctx.strokeStyle = 'red';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                ctx.fillStyle = 'red';
+                ctx.font = '14px Arial';
+                ctx.fillText("Max H", markerX + 10, markerY - 10);
+            }
+
+            // Draw projectile
+            ctx.beginPath();
+            ctx.arc(canvasX, canvasY, 8, 0, 2 * Math.PI);
+            ctx.fillStyle = '#ff5722';
+            ctx.fill();
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            timeVal.textContent = elapsedSimTime.toFixed(2);
+            distXVal.textContent = x.toFixed(2);
+
+            // Stop condition
+            if (y < 0 && elapsedSimTime > 0.1) {
+                isAnimating = false;
+                launchBtn.disabled = false;
+                vxInput.disabled = false;
+                vyInput.disabled = false;
+                
+                const totalTime = (2 * vy) / g;
+                timeVal.textContent = totalTime.toFixed(2);
+                distXVal.textContent = (vx * totalTime).toFixed(2);
+                
+                // Snap to ground for final frame
+                const finalX = 30 + (vx * totalTime) * scale;
+                ctx.beginPath();
+                ctx.arc(finalX, groundY, 8, 0, 2 * Math.PI);
+                ctx.fillStyle = '#ff5722';
+                ctx.fill();
+                ctx.stroke();
+                
+            } else {
+                animationId = requestAnimationFrame(animate);
+            }
+        }
+
+        launchBtn.addEventListener('click', () => {
+            if (isAnimating) return;
+            if (vx === 0 && vy === 0) return;
+            reset(); 
+            startTime = 0;
+            isAnimating = true;
+            launchBtn.disabled = true;
+            vxInput.disabled = true;
+            vyInput.disabled = true;
+            animationId = requestAnimationFrame(animate);
+        });
+
+        // Initialize
+        updateTheta();
+        reset();
+
+    </script>
+</body>
+</html>

@@ -81,7 +81,7 @@ plt.xlim(0, t_burn)
 plt.ylim(0, v(t_burn)*1.05)
 
 # Text annotation for sum
-plt.text(t1/2, v(t_burn)*0.75, r'$x(t_1) = x_0 + \sum v_i \Delta t$', horizontalalignment='center', fontsize=24)
+plt.text(t1/2, v(t_burn)*0.75, r'$x(t_1) \approx x_0 + \sum v_i \Delta t$', horizontalalignment='center', fontsize=24)
 plt.grid(True, linestyle='--', alpha=0.7)
 plt.tight_layout()
 plt.savefig('plot_3_v_numeric.png', dpi=300)
