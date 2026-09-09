@@ -76,29 +76,47 @@
 
         .input-item {
             display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            width: 100%;
+        }
+
+        .input-header {
+            display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
-        .input-item label {
+        .input-header label {
             font-weight: 500;
             color: #cbd5e1;
         }
 
-        .input-item input {
+        .value-display {
+            font-family: monospace;
             background-color: #0f172a;
-            border: 1px solid #334155;
-            color: var(--text-color);
-            padding: 0.5rem;
-            border-radius: 6px;
-            width: 80px;
+            padding: 0.3rem 0.6rem;
+            border-radius: 4px;
+            color: var(--accent-1);
+            font-weight: bold;
             font-size: 1rem;
-            outline: none;
-            transition: border-color 0.2s;
+            min-width: 60px;
+            text-align: right;
+            border: 1px solid #334155;
+        }
+        
+        .input-item input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+            accent-color: var(--accent-1);
         }
 
-        .input-item input:focus {
-            border-color: var(--accent-1);
+        .checkbox-item {
+            flex-direction: row;
+            justify-content: flex-start;
+            gap: 1rem;
+            margin-top: 0.5rem;
+            align-items: center;
         }
 
         .button-group {
@@ -239,20 +257,29 @@
         <div class="controls">
             <div class="input-group">
                 <div class="input-item">
-                    <label for="v1">Runner 1 Speed (v₁)</label>
-                    <div><input type="number" id="v1" value="10" step="0.1" min="0"> m/s</div>
+                    <div class="input-header">
+                        <label for="v1">Runner 1 Speed (v₁)</label>
+                        <div class="value-display"><span id="v1-val">10.0</span> m/s</div>
+                    </div>
+                    <input type="range" id="v1" value="10" step="0.1" min="0" max="20" oninput="document.getElementById('v1-val').innerText=parseFloat(this.value).toFixed(1)">
                 </div>
                 <div class="input-item">
-                    <label for="v2">Runner 2 Speed (v₂)</label>
-                    <div><input type="number" id="v2" value="8" step="0.1" min="0"> m/s</div>
+                    <div class="input-header">
+                        <label for="v2">Runner 2 Speed (v₂)</label>
+                        <div class="value-display"><span id="v2-val">8.0</span> m/s</div>
+                    </div>
+                    <input type="range" id="v2" value="8" step="0.1" min="0" max="20" oninput="document.getElementById('v2-val').innerText=parseFloat(this.value).toFixed(1)">
                 </div>
                 <div class="input-item">
-                    <label for="dist">Initial Distance (d)</label>
-                    <div><input type="number" id="dist" value="10" step="1" min="0"> m</div>
+                    <div class="input-header">
+                        <label for="dist">Initial Distance (d)</label>
+                        <div class="value-display"><span id="dist-val">10</span> m</div>
+                    </div>
+                    <input type="range" id="dist" value="10" step="1" min="0" max="100" oninput="document.getElementById('dist-val').innerText=this.value">
                 </div>
-                <div class="input-item">
+                <div class="input-item checkbox-item">
                     <label for="refFrame">Runner 2 Frame</label>
-                    <div><input type="checkbox" id="refFrame" style="width: 20px; height: 20px; cursor: pointer;"></div>
+                    <input type="checkbox" id="refFrame" style="width: 20px; height: 20px; cursor: pointer;">
                 </div>
             </div>
             <div class="button-group">
